@@ -5,7 +5,7 @@ var program = require('commander');
 var _ = require('lodash');
 var jsonfile = require('jsonfile');
 
-var outputDir = 'output';
+var outputDir = 'out';
 
 // Define help
 program
