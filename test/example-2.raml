@@ -1,0 +1,45 @@
+#%RAML 1.0
+title: Users
+version: 1
+baseUri: /users
+
+types:
+  Users:
+    type: object
+    properties:
+      firstName: string
+      lastName:
+        type: string
+        description: Last name
+      age?:
+        type: integer
+        description: Optional user age (in years)
+      gender?:
+        type: string
+        enum: ["male", "female"]
+      locations?: Location[]
+      isActive: boolean
+      groups?:
+       type: string[]
+      tags?:
+       type: array
+      dimensions?:
+        properties:
+          height: number
+          weight: number
+
+  Location:
+    type: object
+    properties:
+      street: string
+      houseNumber: string
+      city: string
+      country: string
+      zip: string
+      geo?: Coordinates
+
+  Coordinates:
+    type: object
+    properties:
+      latitude: number
+      longitude: number

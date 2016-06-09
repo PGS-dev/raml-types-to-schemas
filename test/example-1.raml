@@ -1,0 +1,42 @@
+#%RAML 1.0
+title: Pet shop
+version: 1
+baseUri: /shop
+
+types:
+
+  Metrics:
+    properties:
+      height: number
+      width: number
+      length: number
+      weight: number
+
+  Pet:
+    properties:
+      name: string
+      kind: string
+      price: number
+      metrics?: Metrics
+      color:
+        enum:
+          - Black
+          - White
+          - Colored
+    example:
+      name: "Snoopy"
+      kind: "Mammal"
+      price: 100
+      color: Black
+
+  Mammal:
+    type: Pet
+
+  Bird:
+    type: Pet
+    properties:
+      wingLength: number
+
+  PetCollection: Pet[]
+
+  RandomPet: Mammal|Bird
