@@ -7,6 +7,9 @@ node index.js -f test/example-2.raml
 
 The output of this command are json files in  `out` directory which should contain schemas.
 
+
+## Example
+
 ## License
 The MIT License (MIT)
 
