@@ -80,6 +80,7 @@ function recursivelyIterateProperties(jsonObject) {
     // // Convert type from array to string value
     if (_.isArray(_.result(jsonObject,'type'))) {
         jsonObject.type = jsonObject.type[0];
+
         //TODO: Arrays and nested user defined data types
         if (jsonObject.type.indexOf('[]') >= 0) {
             jsonObject.items = {
@@ -87,6 +88,15 @@ function recursivelyIterateProperties(jsonObject) {
             }
             jsonObject.type = 'array';
         }
+
+        // Unions
+        if (jsonObject.type.indexOf('|') >= 0) {
+            // Remove spaces
+            jsonObject.type = jsonObject.type.replace(/ /g, '');
+            // Split different types into array of types
+            jsonObject.type = jsonObject.type.split('|');
+        }
+        // TODO: Parse array unions like (string | Person)[]
     }
 
     // Remove unnecessary keys
