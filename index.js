@@ -5,11 +5,10 @@ var program = require('commander');
 var _ = require('lodash');
 var jsonfile = require('jsonfile');
 
-var outputDir = 'out';
-
 // Define help
 program
     .option('-f, --file <path>', 'RAML input file')
+    .option('-o, --output <path>', 'output dir')
     .parse(process.argv);
 
 // Show help if no file
@@ -20,9 +19,15 @@ if (!program.file) {
 }
 
 // Proceed with file
+var outputDir = path.resolve(process.cwd(), __dirname, program.output || 'out');
 var ramlFile = checkIfFileExists(program.file);
 var ramlApi = parseRamlFile(ramlFile);
 var typeDefinitions = ramlApi.types();
+
+// Create output directory
+if (!checkIfFileExists(outputDir)) {
+    fs.mkdirSync(outputDir);
+}
 
 parseRamlToJson(typeDefinitions);
 
@@ -41,8 +46,7 @@ function checkIfFileExists(filePath) {
         return inputFile;
     }
     catch (e) {
-        console.log(chalk.red('provided file does not exist!'));
-        process.exit(1);
+        return false;
     }
 }
 
