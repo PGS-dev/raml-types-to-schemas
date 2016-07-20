@@ -75,7 +75,7 @@ function parseRamlToJson(typeDefinitions) {
             stack;
 
         definition[name]['$schema'] = "http://json-schema.org/draft-04/schema#";
-        definition[name]['id'] = program.prefix + name;
+        definition[name]['id'] = (program.prefix || "") + name;
         recursivelyIterateProperties(definition[name]);
 
         saveJsonFile(outputDir + '/' + name + '.json', definition[name]);
