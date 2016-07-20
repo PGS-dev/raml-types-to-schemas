@@ -3,6 +3,7 @@
   "version": "0.0.2",
   "description": "Tool for conversion from Types in RAML 1.0 to JSON Schemas ",
   "main": "index.js",
+  "bin": "index.js",
   "directories": {
     "test": "test"
   },
