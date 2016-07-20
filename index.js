@@ -9,6 +9,7 @@ var jsonfile = require('jsonfile');
 program
     .option('-f, --file <path>', 'RAML input file')
     .option('-o, --output <path>', 'output dir')
+    .option('-p, --prefix <prefix>', 'prefix for generated `id` properties')
     .parse(process.argv);
 
 // Show help if no file
@@ -74,6 +75,7 @@ function parseRamlToJson(typeDefinitions) {
             stack;
 
         definition[name]['$schema'] = "http://json-schema.org/draft-04/schema#";
+        definition[name]['id'] = program.prefix + name;
         recursivelyIterateProperties(definition[name]);
 
         saveJsonFile(outputDir + '/' + name + '.json', definition[name]);
