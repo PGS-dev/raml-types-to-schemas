@@ -22,6 +22,7 @@ if (!program.file) {
 // Proceed with file
 var outputDir = path.resolve(process.cwd(), __dirname, program.output || 'out');
 var useRef = program.ref || false;
+var singleFile = true;
 var ramlFile = checkIfFileExists(program.file);
 var ramlApi = parseRamlFile(ramlFile);
 var typeDefinitions = ramlApi.types();
@@ -77,9 +78,8 @@ function parseRamlToJson(typeDefinitions) {
 
         definition[name]['$schema'] = "http://json-schema.org/draft-04/schema#";
         recursivelyIterateProperties(definition[name]);
-
         saveJsonFile(outputDir + '/' + name + '.json', definition[name]);
-    })
+    });
 }
 
 function recursivelyIterateProperties(jsonObject) {
@@ -87,13 +87,14 @@ function recursivelyIterateProperties(jsonObject) {
     if (_.isArray(_.result(jsonObject,'type'))) {
         jsonObject.type = jsonObject.type[0];
 
+        // console.log(jsonObject.type);
+
         //TODO: Arrays and nested user defined data types
         if (jsonObject.type.indexOf('[]') >= 0) {
-            var nestedObjType = jsonObject.type.replace('[]', '');
+            jsonObject.items = {
+                type: jsonObject.type.replace('[]', '')
+            };
             jsonObject.type = 'array';
-            jsonObject.items = useRef
-                ? {"$ref": nestedObjType + '.json'}
-                : {type: nestedObjType}
         }
 
         // Unions
@@ -119,15 +120,25 @@ function recursivelyIterateProperties(jsonObject) {
 
         // Parse children properties
         _.forEach(jsonObject.properties, function (propObject, propKey) {
-            recursivelyIterateProperties(propObject)
+            recursivelyIterateProperties(propObject);
         })
     } else {
         jsonObject.required = undefined;
+
+        if (useRef) {
+            if (jsonObject.type === 'array') {
+                jsonObject.items["$ref"] = jsonObject.items.type + '.json';
+                jsonObject.items.type = undefined;
+            } else if (!(/string|integer|boolean|number|object/).test(jsonObject.type)) {
+                jsonObject["$ref"] = jsonObject.type + '.json';
+                jsonObject.type = undefined;
+            }
+        }
     }
 }
 
 function saveJsonFile(filePath, content) {
-    console.log('Saving file ', filePath)
+    console.log('Saving file ', filePath);
     return jsonfile.writeFileSync(filePath, content, {spaces: 2})
 }
 
