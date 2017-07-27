@@ -9,7 +9,6 @@ var jsonfile = require('jsonfile');
 program
     .option('-f, --file <path>', 'RAML input file')
     .option('-o, --output <path>', 'output dir')
-    .option('-r, --ref', 'use nested objects reference')
     .parse(process.argv);
 
 // Show help if no file
@@ -21,21 +20,20 @@ if (!program.file) {
 
 // Proceed with file
 var outputDir = path.resolve(process.cwd(), __dirname, program.output || 'out');
-var useRef = program.ref || false;
-var singleFile = true;
 var ramlFile = checkIfFileExists(program.file);
 var ramlApi = parseRamlFile(ramlFile);
-var typeDefinitions = ramlApi.types();
+var typeDefinitions = parseTypeDefinitions(ramlApi.types());
+var jsonDefinitions = {};
+var nestedDefinitions = [];
 
 // Create output directory
 if (!checkIfFileExists(outputDir)) {
     fs.mkdirSync(outputDir);
 }
 
-parseRamlToJson(typeDefinitions);
+parseRamlToSingleJson(typeDefinitions);
 
 //----------------------------------------------------------------------------------------------------
-
 /**
  * Check if input file exists
  * @param filePath
@@ -69,25 +67,37 @@ function parseRamlFile(ramlFile) {
     }
 }
 
-function parseRamlToJson(typeDefinitions) {
-    typeDefinitions.forEach(function (typeDefinition, idx) {
-        // Debug type definition
-        var definition = typeDefinition.toJSON({serializeMetadata: false}),
-            name = typeDefinition.name(),
-            stack;
+function parseTypeDefinitions(typeDefinitions) {
+    var parsedTypeDefinitions = {};
 
-        definition[name]['$schema'] = "http://json-schema.org/draft-04/schema#";
-        recursivelyIterateProperties(definition[name]);
-        saveJsonFile(outputDir + '/' + name + '.json', definition[name]);
+    typeDefinitions.forEach(function (typeDefinition, idx) {
+        var name = typeDefinition.name();
+        parsedTypeDefinitions[name] = typeDefinition.toJSON({serializeMetadata: false})[name]
+    });
+
+    return parsedTypeDefinitions;
+}
+
+function parseRamlToSingleJson(typeDefinitions) {
+    _.forEach(typeDefinitions, function (definition, name) {
+        if (!jsonDefinitions[name]) {
+            jsonDefinitions[name] = recursivelyIterateProperties(definition);
+        }
+    });
+
+    _.forEach(jsonDefinitions, function (definition, name) {
+        if (nestedDefinitions.indexOf(name) === -1) {
+            definition['$schema'] = "http://json-schema.org/draft-04/schema#";
+            saveJsonFile(outputDir + '/' + name + '.json', definition);
+        }
     });
 }
 
-function recursivelyIterateProperties(jsonObject) {
-    // // Convert type from array to string value
+function recursivelyIterateProperties(typeObject) {
+    var jsonObject = _.cloneDeep(typeObject);
+
     if (_.isArray(_.result(jsonObject,'type'))) {
         jsonObject.type = jsonObject.type[0];
-
-        // console.log(jsonObject.type);
 
         //TODO: Arrays and nested user defined data types
         if (jsonObject.type.indexOf('[]') >= 0) {
@@ -120,21 +130,26 @@ function recursivelyIterateProperties(jsonObject) {
 
         // Parse children properties
         _.forEach(jsonObject.properties, function (propObject, propKey) {
-            recursivelyIterateProperties(propObject);
-        })
+            jsonObject.properties[propKey] = recursivelyIterateProperties(propObject);
+        });
     } else {
-        jsonObject.required = undefined;
+        var type;
 
-        if (useRef) {
-            if (jsonObject.type === 'array') {
-                jsonObject.items["$ref"] = jsonObject.items.type + '.json';
-                jsonObject.items.type = undefined;
-            } else if (!(/string|integer|boolean|number|object/).test(jsonObject.type)) {
-                jsonObject["$ref"] = jsonObject.type + '.json';
-                jsonObject.type = undefined;
-            }
+        if (Object.keys(typeDefinitions).indexOf(jsonObject.type) >= 0) {
+            type = jsonObject.type;
+            jsonObject = recursivelyIterateProperties(typeDefinitions[type]);
+            jsonDefinitions[type] = jsonObject;
+            nestedDefinitions.push(type);
+        }
+        else if (jsonObject.items && Object.keys(typeDefinitions).indexOf(jsonObject.items.type) >= 0) {
+            type = jsonObject.items.type;
+            jsonObject.items = recursivelyIterateProperties(typeDefinitions[type]);
+            jsonDefinitions[type] = jsonObject.items;
+            nestedDefinitions.push(type);
         }
     }
+
+    return jsonObject;
 }
 
 function saveJsonFile(filePath, content) {
