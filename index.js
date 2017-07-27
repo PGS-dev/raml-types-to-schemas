@@ -9,6 +9,7 @@ var jsonfile = require('jsonfile');
 program
     .option('-f, --file <path>', 'RAML input file')
     .option('-o, --output <path>', 'output dir')
+    .option('-r, --ref', 'use nested objects reference')
     .parse(process.argv);
 
 // Show help if no file
@@ -20,6 +21,7 @@ if (!program.file) {
 
 // Proceed with file
 var outputDir = path.resolve(process.cwd(), __dirname, program.output || 'out');
+var useRef = program.ref || false;
 var ramlFile = checkIfFileExists(program.file);
 var ramlApi = parseRamlFile(ramlFile);
 var typeDefinitions = ramlApi.types();
@@ -87,10 +89,11 @@ function recursivelyIterateProperties(jsonObject) {
 
         //TODO: Arrays and nested user defined data types
         if (jsonObject.type.indexOf('[]') >= 0) {
-            jsonObject.items = {
-                type: jsonObject.type.replace('[]', '')
-            }
+            var nestedObjType = jsonObject.type.replace('[]', '');
             jsonObject.type = 'array';
+            jsonObject.items = useRef
+                ? {"$ref": nestedObjType + '.json'}
+                : {type: nestedObjType}
         }
 
         // Unions
