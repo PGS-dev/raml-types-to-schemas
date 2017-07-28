@@ -9,6 +9,7 @@ var jsonfile = require('jsonfile');
 program
     .option('-f, --file <path>', 'RAML input file')
     .option('-o, --output <path>', 'output dir')
+    .option('-t, --type <name>', 'specific RAML type')
     .parse(process.argv);
 
 // Show help if no file
@@ -19,20 +20,22 @@ if (!program.file) {
 }
 
 // Proceed with file
-var outputDir = path.resolve(process.cwd(), __dirname, program.output || 'out');
+var outputDir = program.output ? path.resolve(program.output) : path.resolve(process.cwd(), __dirname, 'out');
+var specificType = program.type;
 var ramlFile = checkIfFileExists(program.file);
 var ramlApi = parseRamlFile(ramlFile);
-var typeDefinitions = ramlApi.types();
+var typeDefinitions = parseTypeDefinitions(ramlApi.types());
+var jsonDefinitions = {};
+var nestedDefinitions = [];
 
 // Create output directory
 if (!checkIfFileExists(outputDir)) {
     fs.mkdirSync(outputDir);
 }
 
-parseRamlToJson(typeDefinitions);
+parseRamlToSingleJson(typeDefinitions);
 
 //----------------------------------------------------------------------------------------------------
-
 /**
  * Check if input file exists
  * @param filePath
@@ -66,22 +69,40 @@ function parseRamlFile(ramlFile) {
     }
 }
 
-function parseRamlToJson(typeDefinitions) {
+function parseTypeDefinitions(typeDefinitions) {
+    var parsedTypeDefinitions = {};
+
     typeDefinitions.forEach(function (typeDefinition, idx) {
-        // Debug type definition
-        var definition = typeDefinition.toJSON({serializeMetadata: false}),
-            name = typeDefinition.name(),
-            stack;
+        var name = typeDefinition.name();
+        parsedTypeDefinitions[name] = typeDefinition.toJSON({serializeMetadata: false})[name]
+    });
 
-        definition[name]['$schema'] = "http://json-schema.org/draft-04/schema#";
-        recursivelyIterateProperties(definition[name]);
+    if (specificType && !parsedTypeDefinitions[specificType]) {
+        console.log('Type ' + specificType + ' is not presented in RAML!');
+        process.exit(1);
+    }
 
-        saveJsonFile(outputDir + '/' + name + '.json', definition[name]);
-    })
+    return parsedTypeDefinitions;
 }
 
-function recursivelyIterateProperties(jsonObject) {
-    // // Convert type from array to string value
+function parseRamlToSingleJson(typeDefinitions) {
+    _.forEach(typeDefinitions, function (definition, name) {
+        if (!jsonDefinitions[name]) {
+            jsonDefinitions[name] = recursivelyIterateProperties(definition);
+        }
+    });
+
+    _.forEach(jsonDefinitions, function (definition, name) {
+        if (nestedDefinitions.indexOf(name) === -1 && (specificType && specificType === name || !specificType)) {
+            definition['$schema'] = "http://json-schema.org/draft-04/schema#";
+            saveJsonFile(outputDir + '/' + name + '.json', definition);
+        }
+    });
+}
+
+function recursivelyIterateProperties(typeObject) {
+    var jsonObject = _.cloneDeep(typeObject);
+
     if (_.isArray(_.result(jsonObject,'type'))) {
         jsonObject.type = jsonObject.type[0];
 
@@ -89,7 +110,7 @@ function recursivelyIterateProperties(jsonObject) {
         if (jsonObject.type.indexOf('[]') >= 0) {
             jsonObject.items = {
                 type: jsonObject.type.replace('[]', '')
-            }
+            };
             jsonObject.type = 'array';
         }
 
@@ -109,6 +130,7 @@ function recursivelyIterateProperties(jsonObject) {
     jsonObject.displayName = undefined;
     jsonObject.repeat = undefined;
     jsonObject.structuredExample = undefined;
+    jsonObject.required = undefined;
 
     if (jsonObject.type === 'object' && _.isObject(jsonObject.properties)) {
         // Find all required properties
@@ -116,15 +138,30 @@ function recursivelyIterateProperties(jsonObject) {
 
         // Parse children properties
         _.forEach(jsonObject.properties, function (propObject, propKey) {
-            recursivelyIterateProperties(propObject)
-        })
+            jsonObject.properties[propKey] = recursivelyIterateProperties(propObject);
+        });
     } else {
-        jsonObject.required = undefined;
+        var type;
+
+        if (Object.keys(typeDefinitions).indexOf(jsonObject.type) >= 0) {
+            type = jsonObject.type;
+            jsonObject = recursivelyIterateProperties(typeDefinitions[type]);
+            jsonDefinitions[type] = jsonObject;
+            nestedDefinitions.push(type);
+        }
+        else if (jsonObject.items && Object.keys(typeDefinitions).indexOf(jsonObject.items.type) >= 0) {
+            type = jsonObject.items.type;
+            jsonObject.items = recursivelyIterateProperties(typeDefinitions[type]);
+            jsonDefinitions[type] = jsonObject.items;
+            nestedDefinitions.push(type);
+        }
     }
+
+    return jsonObject;
 }
 
 function saveJsonFile(filePath, content) {
-    console.log('Saving file ', filePath)
+    console.log('Saving file ', filePath);
     return jsonfile.writeFileSync(filePath, content, {spaces: 2})
 }
 
