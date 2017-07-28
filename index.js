@@ -20,7 +20,7 @@ if (!program.file) {
 }
 
 // Proceed with file
-var outputDir = path.resolve(process.cwd(), __dirname, program.output || 'out');
+var outputDir = program.output ? path.resolve(program.output) : path.resolve(process.cwd(), __dirname, 'out');
 var specificType = program.type;
 var ramlFile = checkIfFileExists(program.file);
 var ramlApi = parseRamlFile(ramlFile);
@@ -130,6 +130,7 @@ function recursivelyIterateProperties(typeObject) {
     jsonObject.displayName = undefined;
     jsonObject.repeat = undefined;
     jsonObject.structuredExample = undefined;
+    jsonObject.required = undefined;
 
     if (jsonObject.type === 'object' && _.isObject(jsonObject.properties)) {
         // Find all required properties
