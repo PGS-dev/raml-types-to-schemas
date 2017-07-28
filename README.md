@@ -1,14 +1,19 @@
 Command line tool based on Node.js for generating JSON schema from RAML 1.0 Types
 
-## Usage
+## Options
+```
+-f, --file <path>    RAML input file
+-o, --output <path>  output dir
+-t, --type <name>    specific RAML type
+-h, --help           output usage information
+```
+
+## Example
 ```
 node index.js -f test/example-2.raml
 ```
 
 The output of this command are json files in  `out` directory which should contain schemas.
-
-
-## Example
 
 ## License
 The MIT License (MIT)
