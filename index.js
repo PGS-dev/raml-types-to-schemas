@@ -9,6 +9,7 @@ var jsonfile = require('jsonfile');
 program
     .option('-f, --file <path>', 'RAML input file')
     .option('-o, --output <path>', 'output dir')
+    .option('-t, --type <name>', 'specific RAML type')
     .parse(process.argv);
 
 // Show help if no file
@@ -20,6 +21,7 @@ if (!program.file) {
 
 // Proceed with file
 var outputDir = path.resolve(process.cwd(), __dirname, program.output || 'out');
+var specificType = program.type;
 var ramlFile = checkIfFileExists(program.file);
 var ramlApi = parseRamlFile(ramlFile);
 var typeDefinitions = parseTypeDefinitions(ramlApi.types());
@@ -75,6 +77,11 @@ function parseTypeDefinitions(typeDefinitions) {
         parsedTypeDefinitions[name] = typeDefinition.toJSON({serializeMetadata: false})[name]
     });
 
+    if (specificType && !parsedTypeDefinitions[specificType]) {
+        console.log('Type ' + specificType + ' is not presented in RAML!');
+        process.exit(1);
+    }
+
     return parsedTypeDefinitions;
 }
 
@@ -86,7 +93,7 @@ function parseRamlToSingleJson(typeDefinitions) {
     });
 
     _.forEach(jsonDefinitions, function (definition, name) {
-        if (nestedDefinitions.indexOf(name) === -1) {
+        if (nestedDefinitions.indexOf(name) === -1 && (specificType && specificType === name || !specificType)) {
             definition['$schema'] = "http://json-schema.org/draft-04/schema#";
             saveJsonFile(outputDir + '/' + name + '.json', definition);
         }
